@@ -1,0 +1,100 @@
+---
+title: "Practical Machine Learning"
+author: "Antreas Antoniou"
+date: "1 Αυγούστου 2016"
+output: html_document
+---
+
+```{r,warning=FALSE}
+#We load the libraries and the data
+library(caret);library(rattle);library(rpart.plot);library(rpart)
+trn<-read.csv("pml-training.csv")
+test<-read.csv("pml-testing.csv")
+#We exclude the names and id
+trn2<-subset(trn,select=-c(1:2))
+#Then we cut the training data to 2 portions and create training and testing data
+set.seed(99)
+inTrain<- createDataPartition(y=trn2$classe,p=.6,list=FALSE)
+
+training<-trn2[inTrain,]
+testing<-trn2[-inTrain,]
+dim(training); dim(testing)
+#Near Zero Variances
+dtNZV<-nearZeroVar(training,saveMetrics=TRUE)
+#we remove NZV
+training<-training[,!dtNZV$nzv]
+
+dim(training)
+```
+
+```{r}
+#We remove variables that have more than 75% NAs
+obs<-nrow(training)
+vars<-ncol(training)
+
+training2 <- training
+
+for(i in 1:vars) {
+        if( (sum(is.na( training[, i]) ) / obs ) >= .75 ){
+                 for(j in 1:ncol(training2)) {
+                         if ( names(training[i]) == names(training2[j]) ) {
+                                training2 <- training2[ , -j]
+                                break
+                        }
+                }
+        }
+}
+dim(training2)
+
+training<-training2
+
+
+```
+
+```{r}
+
+#We coerce the classes to match
+
+test_<-test
+
+for (i in 1:((length(training)-1) )) {
+        class(test_[,names(training[i])])<-class(training[,i])
+}       
+
+```
+
+```{r}
+
+#We finally fit the model
+
+fit<-rpart(classe~.,training)
+
+print(fit,digits=4)
+
+```
+
+```{r}
+fancyRpartPlot(fit)
+```
+
+
+```{r}
+#We test our algorithm
+# in sample error
+predictions<-predict(fit,training,type="class")
+confusionMatrix(predictions,training$classe)
+#out of sample error
+predictions1<-predict(fit,testing,type="class")
+confusionMatrix(predictions1,testing$classe)
+```
+
+
+
+```{r}
+#We find the predictions for the "real" data
+
+predictions_final<-predict(fit,test_,type="class")
+predictions_final
+```
+
+
